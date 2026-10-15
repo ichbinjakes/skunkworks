@@ -12,7 +12,6 @@
 | Identity provider | TinyAuth + LLDAP deployed in-cluster (OIDC) |
 | Operator language | Go + Kubebuilder / controller-runtime |
 | Vault | Single instance, storage backend = CloudNativePG cluster |
-| Audit pipeline | Vector (sidecar) → Postgres (CNPG) — **deviates from DESIGN.md** which used Fluent Bit → Kafka/SIEM |
 | Ingestion runtimes | Flink + Kafka Connect both wired end-to-end |
 
 ---
@@ -31,7 +30,7 @@ ice/
 │   └── 02-rbac-bootstrap.yaml                # admin SA + cluster roles for bootstrap
 ├── platform/
 │   ├── cert-manager/                         # Issuer, ClusterIssuer, CA cert Secret
-│   ├── cloudnative-pg/                       # Cluster CRs: vault-db, polaris-db, vector-db, lldap-db
+│   ├── cloudnative-pg/                       # Cluster CRs: vault-db, polaris-db, lldap-db
 │   ├── rustfs/                               # StatefulSet, Service, PVCs, bucket-init Job, root creds Secret
 │   ├── vault/                                # Deployment, Service, ServiceAccount, cert-auth ConfigMap, init-job
 │   ├── tinyauth/                             # Deployment, OIDC config, Service
@@ -39,8 +38,7 @@ ice/
 │   ├── opa/                                  # Deployment, Service, ConfigMap with .rego bundles
 │   ├── polaris/                              # Deployment, Service, ConfigMap, Ingress
 │   ├── trino/                                # Coordinator + Worker Deployments, ConfigMaps, Ingress
-│   ├── strimzi/                              # KafkaNodePool + Kafka CR, topics
-│   └── vector/                               # DaemonSet, ConfigMap
+│   └── strimzi/                              # KafkaNodePool + Kafka CR, topics
 ├── operator/
 │   ├── lakhouse-operator/                    # Go module, Kubebuilder project
 │   │   ├── api/v1alpha1/                     # LakehouseTable, LakehouseBucketPolicy CRDs
@@ -57,8 +55,7 @@ ice/
 ├── policies/
 │   └── rego/                                 # trino_authorization.rego + bundles
 ├── plugins/
-│   ├── trino-opa-authorizer/                 # upstream plugin reference (trinodb/trino-plugin-opa-authorizer)
-│   └── trino-event-listener-audit/           # custom Maven project (Java) implementing EventListener SPI
+│   └── trino-opa-authorizer/                 # upstream plugin reference (trinodb/trino-plugin-opa-authorizer)
 └── scripts/
     ├── install-operators.sh                  # helm installs for upstream operators
     ├── bootstrap-vault.sh                    # vault init, enable cert auth, register CAs
@@ -86,7 +83,6 @@ ice/
 | Flink | `apache/flink` image | Raw manifests |
 | Kafka Connect | `apache/kafka` + `apache/iceberg-kafka-connect` jar | Raw manifests + init container |
 | Vault Agent | `hashicorp/vault` image | Sidecar (via Vault Agent Injector webhook) |
-| Vector | `timberio/vector` image | DaemonSet + sidecar |
 | Lakehouse Operator | Built by us (Go/Kubebuilder) | Raw manifests via `make install` |
 
 ---
@@ -106,19 +102,17 @@ flowchart TD
   L6 --> L8[Layer 8: Trino coordinator + workers]
   L5 --> L8
   L7 --> L8
-  L2 --> L9[Layer 9: Vector sink to CNPG]
-  L8 --> L9
-  L2 --> L10[Layer 10: Strimzi Kafka]
-  L3 --> L11[Layer 11: Lakehouse Operator]
+  L2 --> L10[Layer 9: Strimzi Kafka]
+  L3 --> L11[Layer 10: Lakehouse Operator]
   L7 --> L11
   L4 --> L11
-  L11 --> L12[Layer 12: Flink + Kafka Connect]
+  L11 --> L12[Layer 11: Flink + Kafka Connect]
   L10 --> L12
   L4 --> L12
 ```
 
 ### Layer 0 — Namespaces, RBAC, NetworkPolicies
-- Namespaces: `platform-system`, `cert-manager`, `vault`, `storage`, `postgres`, `idp`, `polaris`, `trino`, `ingestion`, `ops`, `vector`.
+- Namespaces: `platform-system`, `cert-manager`, `vault`, `storage`, `postgres`, `idp`, `polaris`, `trino`, `ingestion`, `ops`.
 - Default-deny `NetworkPolicy` per namespace; explicit allow lists between known callers.
 - Bootstrap `ServiceAccount` with `cluster-admin` for install scripts only.
 
@@ -134,7 +128,6 @@ flowchart TD
   - `vault-db` (1 instance, 10Gi) — Vault storage backend.
   - `polaris-db` (1 instance, 20Gi) — Polaris metadata.
   - `lldap-db` (1 instance, 5Gi) — LLDAP users/groups.
-  - `vector-db` (1 instance, 10Gi) — audit log sink.
 
 ### Layer 3 — Vault
 - Install `hashicorp/vault` Helm chart with `server.dev.enabled=false`, HA `replicas: 1`, `database` storage backend pointing at `vault-db` via CNPG user.
@@ -173,26 +166,18 @@ flowchart TD
   - Image: `trinodb/trino:435`
   - `config.properties`: `http-server.authentication.type=OIDCAuthentication`, `oidc.issuer-url`, `oidc.client-id`, `oidc.principal-claim=email`, `oidc.audience=trino`.
   - `access-control.properties`: `access-control.name=opa-authorizer`, `opa.policy.uri=http://opa.platform.svc:8181/v1/data/trino/authz`.
-  - `event-listener.properties`: `event-listener.name=audit-json`.
-  - Init container copies `trino-opa-authorizer` and `trino-event-listener-audit` JARs into `/usr/lib/trino/plugin/`.
+  - Init container copies `trino-opa-authorizer` JAR into `/usr/lib/trino/plugin/`.
   - Env: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` injected by **Vault Agent sidecar**.
   - Vault Agent sidecar uses **client cert mTLS** to authenticate to Vault.
 - **Workers**: identical minus OIDC + coordinator roles.
 - `Ingress` with mTLS optional.
 
-### Layer 9 — Vector → Postgres
-- **DaemonSet** `vector` per Trino pod host with `kubernetes_logs` source filter on namespace=`trino`.
-- Sidecar alternative: **Vector sidecar** in each Trino pod tails the EventListener JSON file.
-- Sink: `postgres` with table `trino_audit_events` on the `vector-db` CNPG cluster.
-- Schema: `event_id, ts, user, user_groups, source_ip, query_id, raw_query, accessed_tables, opa_filters, processed_bytes, exec_ms`.
-- **Replaces DESIGN.md** ("Fluent Bit → Kafka / SIEM").
-
-### Layer 10 — Strimzi Kafka
+### Layer 9 — Strimzi Kafka
 - Install Strimzi operator via Helm.
 - `Kafka` CR (KRaft, 1-node dev / 3-node prod) and `KafkaNodePool`s.
-- Topics: `audit.iceberg.completed` (kept for future replay).
+- Topics: `audit.iceberg.completed` (placeholder for future replay — not wired to a sink in this iteration).
 
-### Layer 11 — Lakehouse Operator (Go/Kubebuilder)
+### Layer 10 — Lakehouse Operator (Go/Kubebuilder)
 - CRDs:
   - `LakehouseTable` (spec: `catalog`, `namespace`, `name`, `bucket`, `prefix`, `serviceAccount`, `namespaceRef`).
   - `LakehouseBucketPolicy` (status of the RustFS IAM policy).
@@ -202,7 +187,7 @@ flowchart TD
 - Polaris integration: `notifications` config sends events to operator webhook.
 - Build/deploy: `make docker-build`, push to local registry, raw `Deployment` + RBAC + `Certificate` for webhook TLS.
 
-### Layer 12 — Flink + Kafka Connect
+### Layer 11 — Flink + Kafka Connect
 - Both workloads include **Vault Agent Injector annotations**:
   ```yaml
   annotations:
@@ -229,7 +214,6 @@ Every Service has a matching `NetworkPolicy`:
 - Trino coordinator → Polaris (8181)
 - Flink/Connect → RustFS, Polaris, Kafka, Vault
 - Operator → RustFS admin, Vault, Polaris webhook
-- Vector → Postgres CNPG
 
 ### 5.2 mTLS Identity Flow
 ```
@@ -264,12 +248,7 @@ Every Service has a matching `NetworkPolicy`:
   ```
 - Same OPA instance also serves Polaris admin decisions.
 
-### 5.4 EventListener Audit Plugin
-- Custom Java plugin (`plugins/trino-event-listener-audit/`), Maven, dependency on `io.trino:trino-spi`.
-- Writes NDJSON to `/var/log/trino/audit/events.jsonl` (emptyDir) on `QueryCreatedEvent` and `QueryCompletionEvent`.
-- Captures OPA-applied filters via thread-local populated by a wrapper around the OPA authorizer's response.
-
-### 5.5 Vault Cert Auth Roles
+### 5.4 Vault Cert Auth Roles
 Bootstrap `Job` writes one role per (namespace, serviceaccount) pair referenced by Polaris at table-creation time. Roles are created dynamically by the Lakehouse Operator; the bootstrap only registers the trusted CA.
 
 ---
@@ -279,7 +258,7 @@ Bootstrap `Job` writes one role per (namespace, serviceaccount) pair referenced 
 ```bash
 make apply-bootstrap       # L0
 make install-cert-manager  # L1 (Helm)
-make apply-cnpg            # L1+L2 manifests → wait for clusters ready
+make apply-cnpg            # L2 manifests → wait for clusters ready
 make install-vault         # L3 Helm + bootstrap-job
 make apply-rustfs          # L4
 make install-lldap         # L5
@@ -287,12 +266,11 @@ make install-tinyauth      # L5
 make apply-opa             # L6
 make apply-polaris         # L7
 make apply-trino           # L8
-make install-strimzi       # L10
-make apply-vector          # L9
-make apply-operator        # L11
-make apply-flink           # L12
-make apply-kafka-connect   # L12
-make verify                # end-to-end: cert → vault → rustfs write → trino query → audit row
+make install-strimzi       # L9
+make apply-operator        # L10
+make apply-flink           # L11
+make apply-kafka-connect   # L11
+make verify                # end-to-end: cert → vault → rustfs write → trino query
 ```
 
 ---
@@ -301,14 +279,13 @@ make verify                # end-to-end: cert → vault → rustfs write → tri
 
 | # | Risk / Deviation | Mitigation / Decision Needed |
 |---|------------------|------------------------------|
-| 1 | **Audit pipeline deviation**: DESIGN said Fluent Bit → Kafka/SIEM; we chose Vector → Postgres. | Confirm acceptable. Postgres is cheaper and queryable; can replay to Kafka later. |
+| 1 | **Audit/logging removed**: Trino EventListener SPI and Vector → Postgres audit pipeline removed per user request. No structured query audit trail in this iteration. | Future iteration can reintroduce via Kafka Connect + OpenSearch, or a custom Trino EventListener writing to Postgres directly. |
 | 2 | **RustFS Admin API maturity**: IAM-style per-prefix policies may not be supported the way MinIO supports them. | Verify before implementing operator's `s3_admin_client`. Fallback: enforce path isolation at the bucket layout level (one prefix per table with separate access keys per role). |
 | 3 | **Polaris notification surface**: Polaris must be wired to the operator's webhook. | Confirm Polaris version supports `notifications` config. Otherwise poll the REST catalog periodically. |
 | 4 | **Trino OPA authorizer version**: must match Trino server version (435). | Pin versions in `platform/trino/configmap.yaml`. |
 | 5 | **Vault single instance** = availability bottleneck for cert refresh. | Acceptable for first iteration; add Raft HA later. |
-| 6 | **Custom Java plugin build**: requires a CI image with JDK17 + Maven. | Document local build path; multi-stage Dockerfile in `plugins/trino-event-listener-audit/`. |
-| 7 | **TinyAuth OIDC scope**: ensure it issues `groups` claim from LLDAP. | Configure LLDAP group sync into TinyAuth claims; test with `oidc-tester`. |
-| 8 | **CNPG + Vault storage**: officially supported but slower than Raft. | Acceptable per user decision; document disaster recovery (DB snapshot). |
+| 6 | **TinyAuth OIDC scope**: ensure it issues `groups` claim from LLDAP. | Configure LLDAP group sync into TinyAuth claims; test with `oidc-tester`. |
+| 7 | **CNPG + Vault storage**: officially supported but slower than Raft. | Acceptable per user decision; document disaster recovery (DB snapshot). |
 
 ---
 
@@ -322,7 +299,7 @@ make verify                # end-to-end: cert → vault → rustfs write → tri
    - Issue cert to `orders-ingestion-sa`.
    - Vault Agent renders AWS creds; Flink/Kafka Connect writes to `s3://enterprise-lakehouse/sales.db/orders/`.
    - Polaris notification fires; operator creates bucket policy and Vault role.
-   - Trino query against `sales.orders` returns row-filtered results; OPA payload recorded in audit table.
+   - Trino query against `sales.orders` returns row-filtered results via OPA.
 3. **Negative tests**:
    - Read outside the table prefix → denied (RustFS 403).
    - Row-filtering SQL bypass attempt → denied (Rego rule).
@@ -335,12 +312,11 @@ make verify                # end-to-end: cert → vault → rustfs write → tri
 | Bucket | Scope | % |
 |--------|-------|---|
 | A. Cert-manager + Vault cert auth + Vault Agent sidecars | ~25% |
-| B. CNPG + RustFS + bootstrap scripts | ~10% |
-| C. TinyAuth + LLDAP + OIDC wiring into Trino/Polaris | ~10% |
+| B. CNPG + RustFS + bootstrap scripts | ~12% |
+| C. TinyAuth + LLDAP + OIDC wiring into Trino/Polaris | ~12% |
 | D. Polaris deployment + S3 storage config | ~8% |
-| E. Trino coordinator/worker + OPA plugin + EventListener | ~20% |
-| F. Lakehouse Operator (Go/Kubebuilder) | ~15% |
+| E. Trino coordinator/worker + OPA plugin | ~18% |
+| F. Lakehouse Operator (Go/Kubebuilder) | ~18% |
 | G. Flink + Kafka Connect with Vault Agent + Iceberg sink | ~7% |
-| H. Vector → Postgres audit pipeline + observability | ~5% |
 
 F and E are the heaviest items.
