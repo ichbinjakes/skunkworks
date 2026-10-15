@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform-system
+  labels:
+    name: platform-system
+    layer: platform
+    purpose: shared-platform-services
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+  labels:
+    name: cert-manager
+    layer: platform
+    purpose: certificate-authority
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault
+  labels:
+    name: vault
+    layer: platform
+    purpose: secrets-and-cert-auth
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: storage
+  labels:
+    name: storage
+    layer: platform
+    purpose: object-storage-rustfs
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: postgres
+  labels:
+    name: postgres
+    layer: platform
+    purpose: cloudnative-pg-clusters
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: idp
+  labels:
+    name: idp
+    layer: platform
+    purpose: tinyauth-lldap
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: polaris
+  labels:
+    name: polaris
+    layer: workload
+    purpose: catalog-service
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trino
+  labels:
+    name: trino
+    layer: workload
+    purpose: query-engine
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingestion
+  labels:
+    name: ingestion
+    layer: workload
+    purpose: flink-kafka-connect
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ops
+  labels:
+    name: ops
+    layer: ops
+    purpose: bootstrap-and-tooling
