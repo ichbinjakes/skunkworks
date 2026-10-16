@@ -1,0 +1,24 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: lldap-db
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: cnpg-lldap-db
+    app.kubernetes.io/part-of: lldap
+spec:
+  instances: 1
+  storage:
+    size: 5Gi
+    storageClass: standard
+  postgresqlParams:
+    max_connections: "100"
+    shared_buffers: 128MB
+    work_mem: 8MB
+  bootstrap:
+    initdb:
+      database: lldap
+      owner: lldap
+      secret:
+        name: lldap-db-credentials
+  enableSuperuserAccess: false
