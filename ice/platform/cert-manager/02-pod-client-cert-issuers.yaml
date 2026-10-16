@@ -1,0 +1,53 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: pod-client-cert-issuer
+  namespace: trino
+spec:
+  ca:
+    secretName: internal-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: pod-client-cert-issuer
+  namespace: ingestion
+spec:
+  ca:
+    secretName: internal-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: pod-client-cert-issuer
+  namespace: polaris
+spec:
+  ca:
+    secretName: internal-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: pod-client-cert-issuer
+  namespace: platform-system
+spec:
+  ca:
+    secretName: internal-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: pod-client-cert-issuer
+  namespace: vault
+spec:
+  ca:
+    secretName: internal-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: pod-client-cert-issuer
+  namespace: ops
+spec:
+  ca:
+    secretName: internal-ca
