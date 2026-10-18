@@ -1,0 +1,17 @@
+{
+  "catalogs": [
+    {
+      "user": ".*",
+      "catalog": "iceberg",
+      "allow": "all"
+    }
+  ],
+  "row_filters": [
+    {
+      "catalog": "iceberg",
+      "schema": "default",
+      "table": "sales",
+      "filter": "department IN (SELECT group_name FROM unnest(current_groups()) AS t(group_name))"
+    }
+  ]
+}

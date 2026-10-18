@@ -1,0 +1,35 @@
+issuer: http://localhost:5556/dex
+storage:
+  type: memory
+web:
+  http: 0.0.0.0:5556
+
+logger:
+  level: debug
+
+staticClients:
+  - id: trino-client
+    redirectURIs:
+      - 'http://localhost:8082/oauth2/callback'
+      - 'http://localhost:8082/OAuth2/callback'
+    name: 'Trino Query Engine'
+    secret: trino-secret
+
+  - id: polaris-server
+    name: 'Apache Polaris Catalog'
+    secret: polaris-introspection-secret
+
+enablePasswordDB: true
+staticPasswords:
+  - email: "finance@example.com"
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7J95.M71E3.f90bM3f/V2n7I6K5/a" # password
+    username: "user_finance"
+    userID: "08a5e6bf-e27b-4171-a785-9a21d3bc225a"
+    groups:
+      - "finance_dept"
+  - email: "sales@example.com"
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7J95.M71E3.f90bM3f/V2n7I6K5/a" # password
+    username: "user_sales"
+    userID: "08a5e6bf-e27b-4171-a785-9a21d3bc225b"
+    groups:
+      - "sales_dept"
