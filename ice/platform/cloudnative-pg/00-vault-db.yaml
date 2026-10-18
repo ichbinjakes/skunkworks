@@ -1,0 +1,24 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: vault-db
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: cnpg-vault-db
+    app.kubernetes.io/part-of: vault
+spec:
+  instances: 1
+  storage:
+    size: 10Gi
+    storageClass: standard
+  postgresqlParams:
+    max_connections: "100"
+    shared_buffers: 256MB
+    work_mem: 16MB
+  bootstrap:
+    initdb:
+      database: vault
+      owner: vault
+      secret:
+        name: vault-db-credentials
+  enableSuperuserAccess: false

@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: rustfs
+    ports:
+      - "9000:9000"
+    environment:
+      RUSTFS_ACCESS_KEY: admin
+      RUSTFS_SECRET_KEY: password123
+      RUSTFS_BUCKET: iceberg-warehouse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dex:
+    image: ghcr.io/dexidp/dex:v2.38.0
+    container_name: dex
+    ports:
+      - "5556:5556"
+    volumes:
+      - ./configuration/dex/config.yaml:/etc/dex/config.docker.yaml
+    restart: unless-stopped
+
+  polaris:
+    image: apache/polaris:latest
+    container_name: polaris
+    ports:
+      - "8181:8181"
+    environment:
+      POLARIS_AUTHENTICATION_TYPE: "oauth2-introspection"
+      POLARIS_TOKEN_INTROSPECTION_URI: "http://dex:5556/dex/token/introspect"
+      POLARIS_TOKEN_INTROSPECTION_CLIENT_ID: "polaris-server"
+      POLARIS_TOKEN_INTROSPECTION_CLIENT_SECRET: "polaris-introspection-secret"
+      POLARIS_TOKEN_INTROSPECTION_CACHE_EXPIRATION: "60"
+    depends_on:
+      rustfs:
+        condition: service_healthy
+      dex:
+        condition: service_started
+
+  trino:
+    image: trinodb/trino:442
+    container_name: trino
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./configuration/trino/catalog:/etc/trino/catalog
+      - ./configuration/trino/config.properties:/etc/trino/config.properties
+      - ./configuration/trino/access-control.properties:/etc/trino/access-control.properties
+      - ./configuration/trino/rules.json:/etc/trino/rules.json
+    depends_on:
+      - polaris
+      - dex
