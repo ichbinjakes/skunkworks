@@ -1,4 +1,4 @@
-issuer: http://127.0.0.1:5556/dex
+issuer: http://dex:5556/dex
 storage:
   type: sqlite3
   config:
@@ -65,14 +65,14 @@ staticPasswords:
   # Trino Users - groups are used by Trino for authorization
   - email: light-npe@example.com
     hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
-    username: "peter"
+    username: "light-npe"
     userID: "cefb7ba0-4a60-44ac-9e86-c40e3de4303d"
     groups:
       - "trino_user"
       - "light_namespace"
   - email: shadow-npe@example.com
     hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
-    username: "peter"
+    username: "shadow-npe"
     userID: "cefb7ba0-4a60-44ac-9e86-c40e3de4303d"
     groups:
       - "trino_user"

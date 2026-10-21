@@ -31,7 +31,11 @@ services:
     restart: unless-stopped
 
   polaris:
-    image: apache/polaris:1.8.0
+    # image: apache/polaris:1.8.0
+    image: polaris-oidc-all-roles:1.8.0
+    # build:
+    #   context: .
+    #   dockerfile: ./polaris-ext/Dockerfile
     container_name: polaris
     ports:
       # API port

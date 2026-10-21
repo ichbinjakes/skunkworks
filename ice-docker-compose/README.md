@@ -74,8 +74,8 @@ echo -n $(curl -L -X POST 'http://localhost:5556/dex/token' \
     --data-urlencode 'grant_type=password' \
     --data-urlencode 'client_id=polaris' \
     --data-urlencode 'scope=openid profile groups' \
-    --data-urlencode 'username=finance@example.com' \
-    --data-urlencode 'password=password') | python3 token.py
+    --data-urlencode 'username=judas@example.com' \
+    --data-urlencode 'password=password') | python3 scripts/parse_token.py
 ```
 - ID Token (id_token): A signed JWT containing user claims (such as sub, email, name, and groups).
 - Access Token (access_token): Often an opaque string or a reference token used by Dex internals, though ID tokens carry the inspectable claims.

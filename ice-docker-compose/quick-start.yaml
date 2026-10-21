@@ -7,7 +7,7 @@
 # Principals are identities that can be granted access, like users or services.
 principals:
   judas:
-    type: service
+    type: user
     properties:
       owner: service-administrator
     roles:
