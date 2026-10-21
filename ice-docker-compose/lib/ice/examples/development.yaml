@@ -1,0 +1,139 @@
+catalogs:
+  - name: shadow
+    defaultBaseLocation: ""
+    additionalProperties: {}
+    catalogRoles:
+      - name: shadow_catalog_admin
+        permissions:
+          - CATALOG_MANAGE_CONTENT
+          - CATALOG_MANAGE_ACCESS
+          - CATALOG_MANAGE_METADATA
+          - CATALOG_READ_PROPERTIES
+          - CATALOG_WRITE_PROPERTIES
+          - NAMESPACE_FULL_METADATA
+          - TABLE_FULL_METADATA
+          - VIEW_FULL_METADATA
+      - roleName: shadow_catalog_reader
+        permissions:
+          - CATALOG_MANAGE_METADATA
+          - NAMESPACE_LIST
+          - NAMESPACE_READ_PROPERTIES
+          - NAMESPACE_FULL_METADATA
+          - TABLE_LIST
+          - TABLE_READ_PROPERTIES
+          - TABLE_FULL_METADATA
+          - TABLE_READ_DATA
+          - VIEW_LIST
+          - VIEW_READ_PROPERTIES
+          - VIEW_FULL_METADATA
+      - roleName: shadow_catalog_writer
+        permissions:
+          - CATALOG_MANAGE_METADATA
+          - NAMESPACE_LIST
+          - NAMESPACE_FULL_METADATA
+          - TABLE_LIST
+          - TABLE_READ_PROPERTIES
+          - TABLE_FULL_METADATA
+          - TABLE_READ_DATA
+          - TABLE_WRITE_DATA
+          - VIEW_LIST
+          - VIEW_READ_PROPERTIES
+          - VIEW_FULL_METADATA
+    principalRoles:
+      - name: shadow_catalog_admin
+        catalogRoles:
+          - shadow_catalog_admin
+      - name: shadow_catalog_query_service
+        catalogRoles:
+          - catalog_reader
+      - name: shadow_catalog_ingest_service
+        catalogRoles:
+          - catalog_writer
+      - name: shadow_catalog_data_engineer
+        catalogRoles:
+          - catalog_reader
+          - catalog_writer
+    principals:
+      - name: judas
+        roles:
+          - service_admin
+      - name: james
+        roles:
+          - shadow_catalog_admin
+      - name: peter
+        roles:
+          - data_engineer
+          - governance_officer
+      - name: shadow-npe
+        roles:
+          - catalog_query_service
+          - catalog_ingest_service
+  - name: light
+    defaultBaseLocation: ""
+    additionalProperties: {}
+    catalogRoles:
+      - roleName: light_catalog_admin
+        permissions:
+          - CATALOG_MANAGE_CONTENT
+          - CATALOG_MANAGE_ACCESS
+          - CATALOG_MANAGE_METADATA
+          - CATALOG_READ_PROPERTIES
+          - CATALOG_WRITE_PROPERTIES
+          - NAMESPACE_FULL_METADATA
+          - TABLE_FULL_METADATA
+          - VIEW_FULL_METADATA
+      - roleName: light_catalog_reader
+        permissions:
+          - CATALOG_MANAGE_METADATA
+          - NAMESPACE_LIST
+          - NAMESPACE_READ_PROPERTIES
+          - NAMESPACE_FULL_METADATA
+          - TABLE_LIST
+          - TABLE_READ_PROPERTIES
+          - TABLE_FULL_METADATA
+          - TABLE_READ_DATA
+          - VIEW_LIST
+          - VIEW_READ_PROPERTIES
+          - VIEW_FULL_METADATA
+      - roleName: light_catalog_writer
+        permissions:
+          - CATALOG_MANAGE_METADATA
+          - NAMESPACE_LIST
+          - NAMESPACE_FULL_METADATA
+          - TABLE_LIST
+          - TABLE_READ_PROPERTIES
+          - TABLE_FULL_METADATA
+          - TABLE_READ_DATA
+          - TABLE_WRITE_DATA
+          - VIEW_LIST
+          - VIEW_READ_PROPERTIES
+          - VIEW_FULL_METADATA
+    principalRoles:
+      - name: light_catalog_admin
+        catalogRoles:
+          - light_catalog_admin
+      - name: light_catalog_query_service
+        catalogRoles:
+          - light_catalog_reader
+      - name: light_catalog_ingest_service
+        catalogRoles:
+          - catalog_writer
+      - name: shadow_catalog_data_engineer
+        catalogRoles:
+          - catalog_reader
+          - catalog_writer
+    principals:
+      - name: judas
+        roles:
+          - service_admin
+      - name: simon
+        roles:
+          - catalog_admin
+      - name: noah
+        roles:
+          - data_engineer
+          - governance_officer
+      - name: light-npe
+        roles:
+          - catalog_query_service
+          - catalog_ingest_service

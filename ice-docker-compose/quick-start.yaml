@@ -1,0 +1,194 @@
+# https://polaris.apache.org/in-dev/unreleased/getting-started/setup-tools/
+
+# ==================================
+#        Global Entities
+# ==================================
+
+# Principals are identities that can be granted access, like users or services.
+principals:
+  judas:
+    type: service
+    properties:
+      owner: service-administrator
+    roles:
+      - service_admin
+  james:
+    type: service
+    properties:
+      justification: "Jame's administers the shadow catalog"
+    roles:
+      - shadow_catalog_admin
+  peter:
+    type: service
+    properties:
+      justification: "Peter develops ingestion and query capabilities"
+    roles:
+      - shadow_catalog_data_engineer
+  noah:
+    type: service
+    properties:
+      justification: "Noah requires these permissions to fulfill governance and compliance obligations."
+    roles:
+      - governance_office
+  flink_npe:
+    type: service
+    properties:
+      justification: "The flink NPE runs as a service that write data to the tables within the shadow catalog."
+    roles:
+      - shadow_catalog_ingest
+
+# Principal roles are global roles that group principals.
+principal_roles:
+  # Roles without properties can use the short string form.
+  - service_admin
+  - governance_office
+  # Shadow catalog:
+  - shadow_catalog_admin
+  - shadow_catalog_query
+  - shadow_catalog_ingest
+  - shadow_catalog_data_engineer
+  # Light catalog
+  
+
+# ==================================
+#     Catalog Specific Entities
+# ==================================
+catalogs:
+  - name: shadow_catalog
+    type: internal
+    storage_type: "s3"
+    default_base_location: "s3://shadow-catalog/"
+    allowed_locations:
+      - "s3://shadow-catalog/"
+    # --- S3-Specific Properties ---
+    # The ARN of the IAM role Polaris assumes to access S3.
+    # role_arn: "arn:aws:iam::123456789012:role/QuickstartS3Role"
+    # The External ID for the IAM role assumption.
+    # external_id: "12345678-1234-1234-1234-123456789abc"
+    # The ARN of the IAM user that assumes the role.
+    # user_arn: "arn:aws:iam::123456789012:user/QuickstartUser"
+    # The AWS region for the S3 bucket.
+    # region: "us-west-2"
+    # Custom S3 endpoint.
+    endpoint: "http://rustfs:9000"
+    # Private S3 endpoint that Polaris server uses (defaults to `endpoint`).
+    # STS endpoint that Polaris server uses (falls back to `endpoint_internal` then `endpoint`).
+    # sts_endpoint: "http://rustfs:9000"
+    # Set to true if the storage does not support AWS STS for credential vending.
+    sts_unavailable: true
+    # Set to true to disable KMS key policies.
+    # kms_unavailable: false
+    # Set to true to use path-style access.
+    path_style_access: false
+    # KMS keys that may be used to encrypt data. These keys also receive decrypt permissions.
+    # encryption_keys:
+    #   - "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012"
+    # Additional KMS keys that may be used to decrypt data.
+    # decryption_keys:
+    #   - "arn:aws:kms:us-west-2:123456789012:key/87654321-4321-4321-4321-210987654321"
+    properties:
+      catalog: shadow_catalog
+    
+    # --- Roles and Privileges ---
+    # Catalog roles are scoped to this specific catalog.
+    roles:
+      catalog_admin:
+        # Optional properties persisted with the catalog role.
+        properties:
+          purpose: catalog-administration
+        # Assigns this catalog role to one or more principal roles.
+        assign_to:
+          - service_admin
+          - shadow_catalog_admin
+        privileges:
+          # Privileges applied to the whole catalog
+          catalog:
+            - CATALOG_MANAGE_CONTENT
+      catalog_reader:
+        assign_to:
+          - shadow_catalog_data_engineer
+          - shadow_catalog_query
+        privileges:
+          catalog:
+            - CATALOG_READ_PROPERTIES
+            - NAMESPACE_FULL_METADATA
+            - NAMESPACE_LIST
+            - TABLE_LIST
+            - TABLE_READ_PROPERTIES
+            - TABLE_FULL_METADATA
+            - TABLE_READ_DATA
+            - VIEW_FULL_METADATA
+      catalog_writer:
+        assign_to: 
+          - shadow_catalog_data_engineer
+          - shadow_catalog_ingest
+        privileges:
+          catalog:
+            - NAMESPACE_FULL_METADATA
+            - NAMESPACE_LIST
+            - TABLE_LIST
+            - TABLE_READ_PROPERTIES
+            - TABLE_FULL_METADATA
+            - TABLE_READ_DATA
+            - TABLE_WRITE_DATA
+              
+
+    # --- Namespaces ---
+    # List of namespaces to create within this catalog. Each name is a list of
+    # namespace levels so dots within one level are preserved. Legacy
+    # dot-delimited strings such as dev_namespace.sub_namespace are also accepted.
+    namespaces:
+      - name: [raw, bronze, silver, gold]
+
+    # --- Policies ---
+    # Defines policies that can be attached to entities in this catalog.
+    policies:
+      - name: compaction-policy
+        namespace: [raw]
+        type: "system.data-compaction"
+        description: "Policy to enable data compaction for tables"
+        content: {
+          "version": "2025-02-03",
+          "enable": true,
+          "config": {
+            "target_file_size_bytes": 134217728,
+            "compaction_strategy": "bin-pack",
+            "max-concurrent-file-group-rewrites": 5,
+            "key1": "value1"
+          }
+        }
+        ## commented out as table/view doesn't exist out of box
+        # attach:
+        #   - { type: table-like, path: dev_namespace.sub_namespace.dev_table }
+      - name: snapshot-expiry-policy
+        namespace: [raw]
+        type: "system.snapshot-expiry"
+        description: "Policy to expire old snapshots"
+        content: {
+          "version": "2025-02-03",
+          "enable": true,
+          "config": {
+            "min_snapshot_to_keep": 1,
+            "max_snapshot_age_days": 2,
+            "max_ref_age_days": 3,
+            "key1": "value1"
+          }
+        }
+        attach:
+          - { type: namespace, path: raw }
+      - name: orphan-file-policy
+        namespace: [raw]
+        type: "system.orphan-file-removal"
+        description: "Policy to remove orphan files"
+        content: {
+          "version": "2025-02-03",
+          "enable": true,
+          "max_orphan_file_age_in_days": 30,
+          "locations": ["s3://my-bucket/my-table-location"],
+          "config": {
+            "prefix_mismatch_mode": "ignore",
+            "key1": "value1"
+          }
+        }
+        attach:
+          - { type: catalog }

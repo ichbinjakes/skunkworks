@@ -1,6 +1,8 @@
-issuer: http://localhost:5556/dex
+issuer: http://127.0.0.1:5556/dex
 storage:
-  type: memory
+  type: sqlite3
+  config:
+    file: /var/dex/dex.db
 web:
   http: 0.0.0.0:5556
 
@@ -13,22 +15,78 @@ staticClients:
       - 'http://localhost:8082/oauth2/callback'
       - 'http://localhost:8082/OAuth2/callback'
     name: 'Trino Query Engine'
-    secret: trino-secret
+    secret: DT0Dt8bvp_H4ujgSXacTvStgEmGIJCkze0BjDAKjxlHEWK6pFG9hnBSotJD26XngBXo
 
-  - id: polaris-server
+  - id: polaris
     name: 'Apache Polaris Catalog'
-    secret: polaris-introspection-secret
+    public: true
+    # secret: vn2eSE6bnRkUqxS_TYy0kpFdpHED4eaCc8csbvDLkMc1OV75QoT6Hz67BR5G5E4cDes
+
+oauth2:
+  passwordConnector: local
 
 enablePasswordDB: true
+
 staticPasswords:
+  # Polaris Groups - groups are for reference only
+  # Service Administrator
+  - email: judas@example.com
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
+    username: "judas"
+    userID: "27a55ec0-50d1-4e8a-8c90-76c659513a93"
+    groups:
+      - "polaris_admin"
+  # Catalog administrators
+  - email: simon@example.com
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
+    username: "simon"
+    userID: "a27b9be9-851e-4254-9777-ff8f52c23ce2"
+    groups:
+      - "light_namespace_admin"
+  - email: james@example.com
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
+    username: "james"
+    userID: "2a7e880b-1a46-468d-bb60-318d695e8d6a"
+    groups:
+      - "shadow_namespace_admin"
+  # Data Engineers
+  - email: noah@example.com
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
+    username: "noah"
+    userID: "5a473f54-0996-4e76-a002-8a49116533d9"
+    groups:
+      - "light_table_user"
+  - email: peter@example.com
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
+    username: "peter"
+    userID: "cefb7ba0-4a60-44ac-9e86-c40e3de4303d"
+    groups:
+      - "shadow_table_user"
+  # Trino Users - groups are used by Trino for authorization
+  - email: light-npe@example.com
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
+    username: "peter"
+    userID: "cefb7ba0-4a60-44ac-9e86-c40e3de4303d"
+    groups:
+      - "trino_user"
+      - "light_namespace"
+  - email: shadow-npe@example.com
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
+    username: "peter"
+    userID: "cefb7ba0-4a60-44ac-9e86-c40e3de4303d"
+    groups:
+      - "trino_user"
+      - "shadow_namespace"
+
+
   - email: "finance@example.com"
-    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7J95.M71E3.f90bM3f/V2n7I6K5/a" # password
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
     username: "user_finance"
     userID: "08a5e6bf-e27b-4171-a785-9a21d3bc225a"
     groups:
       - "finance_dept"
   - email: "sales@example.com"
-    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7J95.M71E3.f90bM3f/V2n7I6K5/a" # password
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
     username: "user_sales"
     userID: "08a5e6bf-e27b-4171-a785-9a21d3bc225b"
     groups:

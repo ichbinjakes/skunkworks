@@ -1,49 +1,75 @@
-version: '3.8'
-
 services:
   rustfs:
-    image: rustfs/rustfs:latest
+    image: rustfs/rustfs:1.0.3
     container_name: rustfs
     ports:
       - "9000:9000"
+      - "9001:9001"
     environment:
       RUSTFS_ACCESS_KEY: admin
       RUSTFS_SECRET_KEY: password123
       RUSTFS_BUCKET: iceberg-warehouse
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "curl --fail http://127.0.0.1:9000/health && curl --fail http://127.0.0.1:9001/rustfs/console/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   dex:
-    image: ghcr.io/dexidp/dex:v2.38.0
+    image: ghcr.io/dexidp/dex:v2.46.0
     container_name: dex
     ports:
       - "5556:5556"
     volumes:
-      - ./configuration/dex/config.yaml:/etc/dex/config.docker.yaml
+      - ./configuration/dex/config.yaml:/etc/dex/config.yaml
+    command: dex serve /etc/dex/config.yaml
     restart: unless-stopped
 
   polaris:
-    image: apache/polaris:latest
+    image: apache/polaris:1.8.0
     container_name: polaris
     ports:
+      # API port
       - "8181:8181"
+      # Management port (metrics and health checks)
+      - "8182:8182"
+      # Optional, allows attaching a debugger to the Polaris JVM
+      - "5005:5005"
     environment:
-      POLARIS_AUTHENTICATION_TYPE: "oauth2-introspection"
-      POLARIS_TOKEN_INTROSPECTION_URI: "http://dex:5556/dex/token/introspect"
-      POLARIS_TOKEN_INTROSPECTION_CLIENT_ID: "polaris-server"
-      POLARIS_TOKEN_INTROSPECTION_CLIENT_SECRET: "polaris-introspection-secret"
-      POLARIS_TOKEN_INTROSPECTION_CACHE_EXPIRATION: "60"
+      JAVA_DEBUG: true
+      JAVA_DEBUG_PORT: "*:5005"
+      AWS_REGION: us-west-2
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password123
+      POLARIS_BOOTSTRAP_CREDENTIALS: POLARIS,${ROOT_CLIENT_ID:-root},${ROOT_CLIENT_SECRET:-s3cr3t}
+      # polaris.realm-context.realms: ${POLARIS_REALM:-POLARIS}
+      quarkus.otel.sdk.disabled: "true"
+      # POLARIS_AUTHENTICATION_TYPE: "external"
+      # QUARKUS_OIDC_TENANT_ENABLED: "true"
+      # QUARKUS_OIDC_AUTH_SERVER_URL: "http://dex:5556/dex"
+      # QUARKUS_OIDC_CLIENT_ID: "polaris-server"
+      # QUARKUS_OIDC_CREDENTIALS_SECRET: "polaris-introspection-secret"
+      # QUARKUS_OIDC_APPLICATION_TYPE: "service"
+    volumes:
+      - ./configuration/polaris/application.properties:/deployment/config/application.properties:ro
     depends_on:
-      rustfs:
-        condition: service_healthy
-      dex:
-        condition: service_started
+      - rustfs
+      - dex
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8182/q/health"]
+      interval: 2s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+
 
   trino:
-    image: trinodb/trino:442
+    image: trinodb/trino:484
     container_name: trino
     ports:
       - "8082:8080"
@@ -55,3 +81,28 @@ services:
     depends_on:
       - polaris
       - dex
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/v1/info"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  bucket-setup:
+    image: amazon/aws-cli:2.38.1
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password123
+      AWS_ENDPOINT_URL: http://rustfs:9000
+    entrypoint: "/bin/sh"
+    command:
+      - "-c"
+      - >-
+        echo Creating RustFS bucket... &&
+        aws s3 mb s3://light-catalog &&
+        aws s3 mb s3://shadow-catalog &&
+        aws s3 ls &&
+        echo Bucket setup complete.
