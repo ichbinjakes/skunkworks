@@ -1,0 +1,13 @@
+secretName: ""
+
+config:
+  host: ""
+  storage:
+    type: sqlite3
+    config:
+      file: /var/dex/dex.db
+  logger:
+    level: debug
+  staticClients: []
+  oauth2: {}
+  enable

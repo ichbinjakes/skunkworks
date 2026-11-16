@@ -18,6 +18,7 @@ from typing import Any
 import requests
 
 DEFAULT_DEX_HOST = "http://localhost:5556"
+DEFAULT_DEX_HOST = "https://dex.casa.souter.party"
 DEFAULT_CLIENT_ID = "polaris"
 DEFAULT_SCOPE = "openid profile groups"
 
