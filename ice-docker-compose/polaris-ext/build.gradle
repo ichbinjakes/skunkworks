@@ -1,0 +1,34 @@
+plugins {
+    id 'java'
+    id 'io.quarkus' version '3.39.3'
+}
+
+group = 'org.example.polaris'
+version = '1.8.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation enforcedPlatform("io.quarkus.platform:quarkus-bom:3.39.3")
+    implementation 'io.quarkus:quarkus-oidc'
+    implementation 'io.quarkus:quarkus-rest-jackson'
+    implementation 'io.quarkus:quarkus-smallrye-health'
+
+    // Core Polaris runtime: provides the SPI interfaces (PrincipalMapper,
+    // PrincipalRolesMapper, DefaultAuthenticator, etc.) and the standard service
+    // endpoints. Do NOT add polaris-runtime-defaults or polaris-server here, per the
+    // downstream-build guidance.
+    implementation 'org.apache.polaris:polaris-runtime-service:1.8.0'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
